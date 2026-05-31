@@ -98,7 +98,7 @@
 
                 // 4. Se lo mandamos a tu laptop (Localhost puerto 8000)
                 try {
-                    const respuesta = await fetch("http://localhost:8000/registrar_asistencia", {
+                    const respuesta = await fetch("https://mi-hrms-api.onrender.com/registrar_asistencia", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(paqueteDatos)
