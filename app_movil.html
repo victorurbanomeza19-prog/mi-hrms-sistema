@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Asistencia - HRMS</title>
+    <!-- Esto es puro diseño visual (CSS) para que se vea bonita en el celular -->
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; text-align: center; }
+        .contenedor { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        .btn-enviar { background-color: #008CBA; margin-top: 25px; }
+        #mensaje_estado { margin-top: 15px; font-weight: bold; }
+        .texto-ayuda { font-size: 14px; color: #555; text-align: left; margin-top: 15px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor">
+        <h2>📍 Marcar Asistencia</h2>
+        
+        <!-- Casillas de llenado -->
+        <input type="text" id="id_empleado" placeholder="Tu ID (Ej: EMP-001)">
+        
+        <select id="tipo_marcaje">
+            <option value="Entrada">Entrada</option>
+            <option value="Salida">Salida</option>
+        </select>
+        
+        <!-- Botón del GPS -->
+        <button type="button" onclick="obtenerGPS()">1. Obtener mi Ubicación</button>
+        <p id="texto_gps" style="font-size: 12px; color: gray;">Esperando coordenadas...</p>
+        
+        <!-- Botón de la cámara (El atributo capture="user" abre la cámara frontal) -->
+        <label class="texto-ayuda">2. Tómate una Selfie de validación:</label>
+        <input type="file" id="foto" accept="image/*" capture="user">
+        
+        <!-- Botón para mandar a la API -->
+        <button type="button" class="btn-enviar" onclick="enviarDatos()">3. Enviar Asistencia</button>
+        <p id="mensaje_estado"></p>
+    </div>
+
+    <!-- La inteligencia de la página (JavaScript) -->
+    <script>
+        let miLatitud = "";
+        let miLongitud = "";
+
+        // Función para prender el GPS
+        function obtenerGPS() {
+            document.getElementById("texto_gps").innerText = "Buscando satélites...";
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        miLatitud = pos.coords.latitude.toString();
+                        miLongitud = pos.coords.longitude.toString();
+                        document.getElementById("texto_gps").innerText = "✅ GPS OK: " + miLatitud + ", " + miLongitud;
+                    },
+                    (err) => {
+                        document.getElementById("texto_gps").innerText = "❌ Error: Activa tu GPS y dale permisos al navegador.";
+                    }
+                );
+            } else {
+                document.getElementById("texto_gps").innerText = "❌ Tu dispositivo no soporta GPS.";
+            }
+        }
+
+        // Función para empaquetar y enviar a tu laptop (a tu Recepcionista)
+        async function enviarDatos() {
+            const idEmp = document.getElementById("id_empleado").value;
+            const tipo = document.getElementById("tipo_marcaje").value;
+            const archivoFoto = document.getElementById("foto");
+            const pantallaMensaje = document.getElementById("mensaje_estado");
+
+            // 1. Verificamos que el trabajador haya llenado todo
+            if (!idEmp) { pantallaMensaje.innerText = "⚠️ Escribe tu ID de empleado"; pantallaMensaje.style.color = "orange"; return; }
+            if (!miLatitud) { pantallaMensaje.innerText = "⚠️ Presiona el botón 1 para obtener tu GPS"; pantallaMensaje.style.color = "orange"; return; }
+            if (archivoFoto.files.length === 0) { pantallaMensaje.innerText = "⚠️ Tómate la foto"; pantallaMensaje.style.color = "orange"; return; }
+
+            pantallaMensaje.innerText = "⏳ Enviando datos a la oficina...";
+            pantallaMensaje.style.color = "blue";
+
+            // 2. Convertimos la foto en "texto" para poder mandarla por internet sin problemas
+            const lector = new FileReader();
+            lector.readAsDataURL(archivoFoto.files[0]);
+            lector.onload = async function () {
+                const fotoConvertida = lector.result;
+
+                // 3. Armamos el paquete que espera el Recepcionista
+                const paqueteDatos = {
+                    id_empleado: idEmp,
+                    tipo_marcaje: tipo,
+                    latitud: miLatitud,
+                    longitud: miLongitud,
+                    foto: fotoConvertida
+                };
+
+                // 4. Se lo mandamos a tu laptop (Localhost puerto 8000)
+                try {
+                    const respuesta = await fetch("http://localhost:8000/registrar_asistencia", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(paqueteDatos)
+                    });
+
+                    const resultado = await respuesta.json();
+                    
+                    if (resultado.estado === "éxito") {
+                        pantallaMensaje.innerText = "✅ ¡Asistencia Registrada Correctamente!";
+                        pantallaMensaje.style.color = "green";
+                    } else {
+                        pantallaMensaje.innerText = "❌ Error en el sistema: " + resultado.mensaje;
+                        pantallaMensaje.style.color = "red";
+                    }
+                } catch (error) {
+                    pantallaMensaje.innerText = "❌ No se pudo conectar con la oficina central.";
+                    pantallaMensaje.style.color = "red";
+                }
+            };
+        }
+    </script>
+</body>
+</html>
